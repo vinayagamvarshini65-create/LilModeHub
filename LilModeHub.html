@@ -1,0 +1,606 @@
+<!--
+Kids Fashion Boutique - Single-file Starter Project
+Save this file as: KidsFashionBoutique.html
+Open it in your browser (double-click or right-click -> Open with -> Browser)
+
+Step-by-step instructions (quick):
+1. Save this entire file as "KidsFashionBoutique.html" on your computer.
+2. Open the file in a browser to try the UI and features.
+3. Edit the `products` array in the <script> section to add/remove dresses.
+4. To host online: push this file to a GitHub repo and enable GitHub Pages, or upload to Netlify.
+
+Features included:
+- Landing page with auto-rotating image slider (hero)
+- Collections section with product grid
+- Search with microphone support (Web Speech API; falls back gracefully)
+- Filters (Category, Age Group, Price range)
+- Product details modal
+- Cart with add/remove/quantity + persisted in localStorage
+- Order form (no payment) with validation
+- About & Contact sections
+- Responsive and pastel UI
+
+Notes:
+- This is a single-file prototype to help you learn and iterate quickly.
+- Replace placeholder images with real product photos when ready.
+
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LilModeHub — Kids Dresses</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg: #fff8fb;
+      --card: #fff;
+      --accent: #ffb6d5;
+      --accent-2: #e8d7ff;
+      --muted: #6b6b6b;
+      --radius: 14px;
+      --max-width: 1100px;
+    }
+    *{box-sizing:border-box}
+    body{font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin:0; background:var(--bg); color:#222}
+    header{background:linear-gradient(90deg, rgba(255,182,213,0.12), rgba(232,215,255,0.08)); padding:12px 20px; position:sticky; top:0; z-index:30; backdrop-filter: blur(4px);}
+    .container{max-width:var(--max-width); margin:0 auto}
+    .nav{display:flex; align-items:center; justify-content:space-between}
+    .logo{font-weight:700; color:#d63384; font-size:20px}
+    nav a{margin:0 10px; text-decoration:none; color:#444}
+    .nav-right{display:flex; align-items:center; gap:12px}
+    .btn{background:var(--accent); border:none; padding:8px 12px; border-radius:10px; cursor:pointer}
+    .cart-btn{position:relative}
+    .badge{position:absolute; top:-6px; right:-6px; background:#ff3860; color:white; font-size:12px; padding:3px 7px; border-radius:50%}
+
+    /* HERO / SLIDER */
+    .hero{padding:28px 0}
+    .hero-inner{display:grid; grid-template-columns: 1fr 420px; gap:20px; align-items:center}
+    .hero-left{padding:20px}
+    .tag{background:var(--accent-2); display:inline-block; padding:6px 10px; border-radius:999px; font-weight:700; color:#6b1f6b}
+    h1{font-size:34px; margin:16px 0}
+    p.lead{color:var(--muted); margin-bottom:18px}
+    .hero-actions{display:flex; gap:10px}
+
+    .slider{position:relative; border-radius:18px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.06)}
+    .slides{display:flex; transition:transform .5s ease}
+    .slide{min-width:100%; display:block}
+    .slide img{width:100%; height:420px; object-fit:cover; display:block}
+    .slider-controls{position:absolute; right:12px; top:12px; display:flex; gap:8px}
+
+    /* Collections */
+    .section{padding:34px 0}
+    .grid{display:grid; grid-template-columns: 260px 1fr; gap:20px}
+    .filters{background:var(--card); padding:18px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.03)}
+    .filter-group{margin-bottom:14px}
+    .products{display:grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap:16px}
+    .card{background:var(--card); border-radius:12px; padding:12px; box-shadow:0 8px 20px rgba(0,0,0,0.04); transition:transform .18s ease; display:flex; flex-direction:column}
+    .card:hover{transform:translateY(-6px)}
+    .card img{width:100%; height:260px; object-fit:cover; border-radius:10px}
+    .card h4{margin:10px 0 6px}
+    .meta{display:flex; justify-content:space-between; align-items:center}
+    .price{font-weight:700; color:#d63384}
+    .small{font-size:13px;color:var(--muted)}
+
+    /* Modal & cart */
+    .modal, .offcanvas{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.35); z-index:60;}
+    .modal-card{background:var(--card); border-radius:12px; width:92%; max-width:720px; padding:18px; box-shadow:0 20px 40px rgba(0,0,0,0.2)}
+    .close{background:transparent; border:none; font-size:20px; cursor:pointer}
+
+    .offcanvas-panel{position:fixed; right:0; top:0; height:100%; width:360px; background:var(--card); padding:18px; box-shadow:-12px 0 40px rgba(0,0,0,0.12); overflow:auto}
+    .cart-item{display:flex; gap:10px; align-items:center; margin-bottom:12px}
+    .qty{display:flex; gap:6px; align-items:center}
+    .total{font-weight:800; font-size:18px; margin-top:12px}
+
+    /* About & contact */
+    .columns{display:grid; grid-template-columns: 1fr 1fr; gap:18px}
+    .contact-form input, .contact-form textarea, .order-form input, .order-form select{width:100%; padding:10px; margin-bottom:8px; border-radius:8px; border:1px solid #eee}
+
+    /* Responsive */
+    @media(max-width:900px){
+      .hero-inner{grid-template-columns: 1fr}
+      .grid{grid-template-columns: 1fr}
+      .hero-left{order:2}
+      .slider{order:1}
+      .hero-left h1{font-size:26px}
+      .slide img{height:320px}
+      .offcanvas-panel{width:100%;}
+    }
+
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <div class="logo">LilModeHub</div>
+      <nav>
+        <a href="#home">Home</a>
+        <a href="#collections">Collections</a>
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
+      </nav>
+      <div class="nav-right">
+        <div style="display:flex; align-items:center; gap:8px">
+          <input id="searchTop" placeholder="Search dresses..." style="padding:8px 10px; border-radius:10px; border:1px solid #eee" />
+          <button id="micBtn" class="btn" title="Voice search">🎤</button>
+        </div>
+        <button id="openCart" class="btn cart-btn">🛒 Cart <span id="cartCount" class="badge" style="display:none">0</span></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- HERO -->
+    <section id="home" class="hero">
+      <div class="hero-inner">
+        <div class="hero-left">
+          <span class="tag">Kids Fashion</span>
+          <h1>Trendy & Comfortable Dresses for Little Princesses</h1>
+          <p class="lead">Discover colorful, soft and playful dresses designed especially for kids. Browse by age, category and occasion.</p>
+          <div class="hero-actions">
+            <a href="#collections" class="btn">Shop Collections</a>
+            <a href="#contact" class="btn">Contact Us</a>
+          </div>
+          <div style="margin-top:18px; color:var(--muted); font-size:13px">Free returns • Secure data • Sizes for ages 2–10</div>
+        </div>
+
+        <div class="slider" aria-hidden="false">
+          <div id="slides" class="slides">
+            <!-- slides rendered by JS -->
+          </div>
+          <div class="slider-controls">
+            <button id="prevSlide" class="btn">◀</button>
+            <button id="nextSlide" class="btn">▶</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COLLECTIONS -->
+    <section id="collections" class="section">
+      <div class="grid">
+        <aside class="filters">
+          <div class="filter-group">
+            <label class="small">Search</label>
+            <input id="search" placeholder="Search by name or category" style="width:100%; padding:8px; border-radius:8px; border:1px solid #eee" />
+          </div>
+          <div class="filter-group">
+            <label class="small">Category</label>
+            <div>
+              <label><input type="checkbox" class="cat" value="Frocks"> Frocks</label><br>
+              <label><input type="checkbox" class="cat" value="Tops & Skirts"> Tops & Skirts</label><br>
+              <label><input type="checkbox" class="cat" value="Party Wear"> Party Wear</label><br>
+              <label><input type="checkbox" class="cat" value="Casual Wear"> Casual Wear</label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label class="small">Age Group</label>
+            <div>
+              <label><input type="checkbox" class="age" value="2-4"> 2–4 yrs</label><br>
+              <label><input type="checkbox" class="age" value="5-7"> 5–7 yrs</label><br>
+              <label><input type="checkbox" class="age" value="8-10"> 8–10 yrs</label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label class="small">Max Price: <span id="priceLabel">₹2000</span></label>
+            <input id="price" type="range" min="0" max="3000" value="3000" />
+          </div>
+
+          <div style="display:flex; gap:8px; margin-top:10px">
+            <button id="resetFilters" class="btn">Reset</button>
+            <button id="applyFilters" class="btn">Apply</button>
+          </div>
+        </aside>
+
+        <section>
+          <h2 style="margin-top:6px">Collections</h2>
+          <div id="products" class="products" aria-live="polite">
+            <!-- product cards by JS -->
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section id="about" class="section">
+      <div class="columns">
+        <div style="background:var(--card); padding:18px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.04)">
+          <h3>About LilModeHub</h3>
+          <p class="small">We believe in fun, comfort and quality. Our collection is curated to blend soft fabrics and kid-friendly designs for everyday wear and special occasions.</p>
+          <p><strong>Mission:</strong> Making kids fashion fun & comfortable.</p>
+        </div>
+        <div style="background:var(--card); padding:18px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.04)">
+          <h3>Why choose us?</h3>
+          <ul class="small">
+            <li>Soft, breathable fabrics</li>
+            <li>Age-appropriate sizing</li>
+            <li>Easy returns & friendly support</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT -->
+    <section id="contact" class="section">
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:18px">
+        <div style="background:var(--card); padding:18px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.04)">
+          <h3>Contact Us</h3>
+          <form id="contactForm" class="contact-form">
+            <input id="cname" placeholder="Name" required />
+            <input id="cemail" placeholder="Email" type="email" required />
+            <textarea id="cmsg" placeholder="Message" rows="4"></textarea>
+            <button type="submit" class="btn">Send Message</button>
+          </form>
+        </div>
+        <div style="background:var(--card); padding:18px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.04)">
+          <h3>Visit Us</h3>
+          <p class="small">123 Rainbow Street, Dreamtown</p>
+          <p class="small">Phone: +91 98765 43210</p>
+          <p class="small">Instagram: @LilModeHub</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- PRODUCT DETAILS MODAL (hidden) -->
+  <div id="productModal" class="modal" style="display:none">
+    <div class="modal-card">
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <h3 id="modalTitle">Product</h3>
+        <button class="close" id="closeModal">✖</button>
+      </div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px">
+        <img id="modalImg" src="" alt="" style="width:100%; border-radius:10px; height:320px; object-fit:cover" />
+        <div>
+          <p id="modalDesc" class="small"></p>
+          <p><strong>Fabric:</strong> <span id="modalFabric"></span></p>
+          <p><strong>Sizes:</strong> <span id="modalSizes"></span></p>
+          <p class="price">₹<span id="modalPrice"></span></p>
+          <div style="margin-top:12px">
+            <button id="modalAdd" class="btn">Add to Cart</button>
+            <button id="orderNow" class="btn">Order Now</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CART OFFCANVAS -->
+  <div id="cartOverlay" class="modal" style="display:none">
+    <div class="offcanvas-panel">
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <h3>Your Cart</h3>
+        <button id="closeCart" class="close">✖</button>
+      </div>
+
+      <div id="cartItems" style="margin-top:12px">
+        <!-- cart items -->
+      </div>
+
+      <div id="cartSummary" style="margin-top:12px">
+        <div class="total">Total: ₹<span id="cartTotal">0</span></div>
+        <div style="margin-top:12px">
+          <button id="checkoutBtn" class="btn">Proceed to Order</button>
+        </div>
+      </div>
+
+      <hr style="margin:12px 0; border:none; border-top:1px solid #f0f0f0" />
+      <div style="font-size:13px; color:var(--muted)">Cart is saved in your browser (LocalStorage)</div>
+    </div>
+  </div>
+
+  <!-- ORDER MODAL -->
+  <div id="orderModal" class="modal" style="display:none">
+    <div class="modal-card">
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <h3>Place Order</h3>
+        <button class="close" id="closeOrder">✖</button>
+      </div>
+      <form id="orderForm" class="order-form" style="margin-top:12px">
+        <input id="oName" placeholder="Full name" required />
+        <input id="oPhone" placeholder="Phone" required />
+        <input id="oAddress" placeholder="Shipping address" required />
+        <select id="oSize" required>
+          <option value="">Select size</option>
+        </select>
+        <div style="display:flex; gap:8px; margin-top:8px">
+          <button type="submit" class="btn">Place Order</button>
+          <button type="button" id="cancelOrder" class="btn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer style="padding:18px 0; text-align:center; color:var(--muted); margin-top:18px">© LilModeHub</footer>
+
+  <script>
+    /**********************
+     * Sample product data
+     * edit this array to change inventory
+     **********************/
+    const products = [
+      {id:1, name:'Pink Tulle Frock', price:1200, category:'Frocks', age:'2-4', image:"images/dress_1.jpg", description:'Soft tulle frock with floral embroidery', fabric:'Cotton + Tulle', sizes:['2','3','4'], featured:true},
+      {id:2, name:'Blue Polka Dress', price:1350, category:'Party Wear', age:'5-7', image:"images/dress_2.jpg", description:'Party-ready polka dots with bow detail', fabric:'Cotton blend', sizes:['5','6','7'], featured:true},
+      {id:3, name:'Sunshine Top & Skirt', price:750, category:'Tops & Skirts', age:'2-4', image:"images/dress_3.jpg", description:'Breathable top with pleated skirt', fabric:'Linen blend', sizes:['2','3','4'], featured:false},
+      {id:4, name:'Lavender Party Frock', price:1700, category:'Party Wear', age:'8-10', image:"images/dress_4.jpg", description:'Elegant lavender frock with shimmer lining', fabric:'Soft satin', sizes:['8','9','10'], featured:true},
+      {id:5, name:'Casual Cotton Dress', price:650, category:'Casual Wear', age:'5-7', image:"images/dress_5.jpg", description:'Everyday comfy cotton dress', fabric:'100% Cotton', sizes:['5','6','7'], featured:false},
+      {id:6, name:'Floral Skirt Set', price:900, category:'Tops & Skirts', age:'8-10', image:"images/dress_6.jpg", description:'Two-piece floral skirt and top', fabric:'Viscose blend', sizes:['8','9','10'], featured:false},
+      {id:7, name:'Ruffle Summer Dress', price:1100, category:'Frocks', age:'5-7', image:"images/dress_7.jpg", description:'Light ruffle dress perfect for sunny days', fabric:'Cotton', sizes:['5','6','7'], featured:false},
+      {id:8, name:'Seaside Casual Set', price:800, category:'Casual Wear', age:'2-4', image:"images/dress_8.jpg", description:'Playful set for beach outings', fabric:'Cotton blend', sizes:['2','3','4'], featured:false}
+    ];
+
+    /**********************
+     * App state
+     **********************/
+    let cart = {}; // {productId: qty}
+    const CART_KEY = 'kidsBoutiqueCart_v1';
+
+    /**********************
+     * Utilities
+     **********************/
+    const qs = (s, el=document) => el.querySelector(s);
+    const qsa = (s, el=document) => Array.from(el.querySelectorAll(s));
+
+    function saveCart(){
+      localStorage.setItem(CART_KEY, JSON.stringify(cart));
+      renderCartCount();
+    }
+    function loadCart(){
+      try{
+        const raw = localStorage.getItem(CART_KEY);
+        cart = raw ? JSON.parse(raw) : {};
+      }catch(e){ cart = {}; }
+      renderCartCount();
+    }
+    function renderCartCount(){
+      const count = Object.values(cart).reduce((s,q)=>s+q,0);
+      const badge = qs('#cartCount');
+      if(count>0){ badge.style.display='inline-block'; badge.textContent = count } else badge.style.display='none';
+    }
+
+    /**********************
+     * Slider
+     **********************/
+    function renderSlider(){
+      const slidesEl = qs('#slides'); slidesEl.innerHTML = '';
+      const featured = products.filter(p=>p.featured);
+      const slides = featured.length?featured:products.slice(0,3);
+      slides.forEach(p=>{
+        const div = document.createElement('div'); div.className='slide';
+        div.innerHTML = `<img src="${p.image}" alt="${p.name}">`;
+        slidesEl.appendChild(div);
+      });
+      // setup basic controls
+      let idx=0; const slideCount=slides.length;
+      const update = () => { slidesEl.style.transform = `translateX(-${idx*100}%)`; };
+      update();
+      qs('#nextSlide').onclick = ()=>{ idx = (idx+1)%slideCount; update(); };
+      qs('#prevSlide').onclick = ()=>{ idx = (idx-1+slideCount)%slideCount; update(); };
+      setInterval(()=>{ idx = (idx+1)%slideCount; update(); }, 4000);
+    }
+
+    /**********************
+     * Products rendering & filters
+     **********************/
+    function getFilters(){
+      const search = qs('#search').value.trim().toLowerCase();
+      const categories = qsa('.cat:checked').map(i=>i.value);
+      const ages = qsa('.age:checked').map(i=>i.value);
+      const maxPrice = Number(qs('#price').value);
+      return {search, categories, ages, maxPrice};
+    }
+
+    function productMatches(p, filters){
+      if(filters.search){
+        const s = filters.search;
+        if(!(p.name.toLowerCase().includes(s) || p.category.toLowerCase().includes(s))) return false;
+      }
+      if(filters.categories.length && !filters.categories.includes(p.category)) return false;
+      if(filters.ages.length && !filters.ages.includes(p.age)) return false;
+      if(p.price > filters.maxPrice) return false;
+      return true;
+    }
+
+    function renderProducts(){
+      const container = qs('#products'); container.innerHTML = '';
+      const filters = getFilters();
+      const shown = products.filter(p=>productMatches(p, filters));
+      if(shown.length===0){ container.innerHTML = '<div style="padding:20px; color:var(--muted)">No products match your filters.</div>'; return; }
+      shown.forEach(p=>{
+        const card = document.createElement('div'); card.className='card';
+        card.innerHTML = `
+          <img src="${p.image}" alt="${p.name}">
+          <h4>${p.name}</h4>
+          <div class="meta"><div class="small">Age: ${p.age}</div><div class="price">₹${p.price}</div></div>
+          <div style="margin-top:10px; display:flex; gap:8px; align-items:center">
+            <button class="btn add" data-id="${p.id}">Add to Cart</button>
+            <button class="btn details" data-id="${p.id}">Details</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    /**********************
+     * Cart actions
+     **********************/
+    function addToCart(id, qty=1){
+      id = String(id);
+      cart[id] = (cart[id]||0) + qty;
+      saveCart();
+      renderCart();
+      alert('Added to cart');
+    }
+    function removeFromCart(id){
+      id = String(id);
+      delete cart[id]; saveCart(); renderCart();
+    }
+    function changeQty(id, delta){
+      id = String(id);
+      cart[id] = (cart[id]||0) + delta;
+      if(cart[id] <= 0) delete cart[id];
+      saveCart(); renderCart();
+    }
+
+    function renderCart(){
+      const container = qs('#cartItems'); container.innerHTML='';
+      const ids = Object.keys(cart);
+      let total = 0;
+      if(ids.length===0){ container.innerHTML = '<div style="padding:12px; color:var(--muted)">Your cart is empty.</div>'; qs('#cartTotal').textContent='0'; return; }
+      ids.forEach(id=>{
+        const p = products.find(x=>String(x.id)===id);
+        const qty = cart[id];
+        const item = document.createElement('div'); item.className='cart-item';
+        item.innerHTML = `
+          <img src="${p.image}" alt="${p.name}" style="width:64px; height:90px; object-fit:cover; border-radius:8px">
+          <div style="flex:1">
+            <div style="font-weight:700">${p.name}</div>
+            <div class="small">₹${p.price} • Age ${p.age}</div>
+            <div class="qty" style="margin-top:6px">
+              <button class="btn qty-minus" data-id="${id}">-</button>
+              <div style="padding:6px 8px; border-radius:8px; background:#f8f8f8">${qty}</div>
+              <button class="btn qty-plus" data-id="${id}">+</button>
+              <button class="btn" style="margin-left:8px" data-id="${id}" data-remove>Remove</button>
+            </div>
+          </div>
+        `;
+        container.appendChild(item);
+        total += p.price * qty;
+      });
+      qs('#cartTotal').textContent = total;
+      renderCartCount();
+
+      // wire up qty controls
+      qsa('.qty-plus').forEach(b=>b.onclick = e=>{ changeQty(e.currentTarget.dataset.id, 1); });
+      qsa('.qty-minus').forEach(b=>b.onclick = e=>{ changeQty(e.currentTarget.dataset.id, -1); });
+      qsa('[data-remove]').forEach(b=>b.onclick = e=>{ removeFromCart(e.currentTarget.dataset.id); });
+    }
+
+    /**********************
+     * Product details
+     **********************/
+    function showProductModal(id){
+      const p = products.find(x=>x.id===Number(id));
+      if(!p) return;
+      qs('#modalTitle').textContent = p.name;
+      qs('#modalImg').src = p.image;
+      qs('#modalDesc').textContent = p.description;
+      qs('#modalFabric').textContent = p.fabric;
+      qs('#modalSizes').textContent = p.sizes.join(', ');
+      qs('#modalPrice').textContent = p.price;
+      qs('#productModal').style.display = 'flex';
+      qs('#modalAdd').dataset.id = p.id;
+      qs('#orderNow').dataset.id = p.id;
+    }
+
+    function hideModal(id){ qs(id).style.display='none'; }
+
+    /**********************
+     * Order flow
+     **********************/
+    let orderProductId = null;
+    function openOrderModal(productId){
+      orderProductId = productId;
+      const p = products.find(x=>x.id===Number(productId));
+      // fill sizes dropdown
+      const sel = qs('#oSize'); sel.innerHTML = '<option value="">Select size</option>';
+      p.sizes.forEach(s=>{ const opt = document.createElement('option'); opt.value=s; opt.textContent=s; sel.appendChild(opt); });
+      qs('#orderModal').style.display='flex';
+    }
+
+    function placeOrder(e){
+      e.preventDefault();
+      const name = qs('#oName').value.trim();
+      const phone = qs('#oPhone').value.trim();
+      const address = qs('#oAddress').value.trim();
+      const size = qs('#oSize').value;
+      if(!name || !phone || !address || !size){ alert('Please fill all fields'); return; }
+      // simple phone validation
+      if(!/^\d{7,15}$/.test(phone)){ alert('Please enter a valid phone number (digits only)'); return; }
+      // store order (demo only)
+      const order = { id: Date.now(), productId: orderProductId, name, phone, address, size, when: new Date().toISOString() };
+      const orders = JSON.parse(localStorage.getItem('kidsBoutiqueOrders_v1')||'[]');
+      orders.push(order); localStorage.setItem('kidsBoutiqueOrders_v1', JSON.stringify(orders));
+      alert('Order placed! We will contact you soon.');
+      // clear cart and close
+      cart = {}; saveCart(); renderCart(); hideModal('#orderModal');
+    }
+
+    /**********************
+     * Search with microphone
+     **********************/
+    function setupVoiceSearch(){
+      const mic = qs('#micBtn');
+      const searchTop = qs('#searchTop');
+      if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)){
+        mic.title = 'Voice search not supported in this browser';
+        mic.onclick = ()=>{ alert('Speech recognition not supported in this browser. Try Chrome or Edge.'); };
+        return;
+      }
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recog = new SpeechRecognition(); recog.lang = 'en-IN'; recog.interimResults = false; recog.maxAlternatives = 1;
+      mic.onclick = ()=>{ recog.start(); mic.textContent = '🎙️..'; };
+      recog.onresult = (ev)=>{ const text = ev.results[0][0].transcript; searchTop.value = text; qs('#search').value = text; renderProducts(); mic.textContent = '🎤'; };
+      recog.onend = ()=>{ mic.textContent = '🎤'; };
+      recog.onerror = (e)=>{ console.error(e); mic.textContent = '🎤'; alert('Voice recognition error: ' + e.error); };
+
+      // top search input wiring
+      searchTop.addEventListener('input', ()=>{ qs('#search').value = searchTop.value; renderProducts(); });
+    }
+
+    /**********************
+     * Wiring up events
+     **********************/
+    document.addEventListener('DOMContentLoaded', ()=>{
+      renderSlider();
+      // set price range bounds
+      const prices = products.map(p=>p.price); const max = Math.max(...prices); qs('#price').max = Math.ceil(max/100)*100; qs('#price').value = qs('#price').max; qs('#priceLabel').textContent = '₹' + qs('#price').value;
+
+      qs('#price').addEventListener('input', ()=>{ qs('#priceLabel').textContent = '₹' + qs('#price').value; renderProducts(); });
+      qsa('.cat').forEach(i=>i.addEventListener('change', ()=>renderProducts()));
+      qsa('.age').forEach(i=>i.addEventListener('change', ()=>renderProducts()));
+      qs('#search').addEventListener('input', ()=>{ renderProducts(); });
+
+      qs('#resetFilters').onclick = ()=>{ qsa('.cat, .age').forEach(i=>i.checked=false); qs('#search').value=''; qs('#price').value = qs('#price').max; qs('#priceLabel').textContent = '₹' + qs('#price').value; renderProducts(); };
+      qs('#applyFilters').onclick = ()=>{ renderProducts(); };
+
+      // product buttons (delegation)
+      qs('#products').addEventListener('click', (e)=>{
+        const add = e.target.closest('.add');
+        const details = e.target.closest('.details');
+        if(add){ addToCart(add.dataset.id, 1); }
+        if(details){ showProductModal(details.dataset.id); }
+      });
+
+      // modal controls
+      qs('#closeModal').onclick = ()=> hideModal('#productModal');
+      qs('#modalAdd').onclick = (e)=>{ addToCart(e.currentTarget.dataset.id, 1); };
+      qs('#orderNow').onclick = (e)=>{ hideModal('#productModal'); openOrderModal(e.currentTarget.dataset.id); };
+
+      // cart open/close
+      qs('#openCart').onclick = ()=>{ qs('#cartOverlay').style.display='flex'; renderCart(); };
+      qs('#closeCart').onclick = ()=> hideModal('#cartOverlay');
+      qs('#checkoutBtn').onclick = ()=>{ hideModal('#cartOverlay'); openOrderModal(Object.keys(cart)[0] || products[0].id); };
+
+      qs('#closeOrder').onclick = ()=> hideModal('#orderModal');
+      qs('#cancelOrder').onclick = ()=> hideModal('#orderModal');
+      qs('#orderForm').addEventListener('submit', placeOrder);
+
+      // contact form
+      qs('#contactForm').addEventListener('submit', (e)=>{ e.preventDefault(); alert('Message sent! We will reply soon.'); qs('#contactForm').reset(); });
+
+      // load & render
+      loadCart(); renderProducts(); setupVoiceSearch();
+    });
+
+    // smooth nav scroll
+    qsa('nav a').forEach(a=> a.addEventListener('click', (e)=>{ e.preventDefault(); document.querySelector(a.getAttribute('href')).scrollIntoView({behavior:'smooth'}); }));
+
+  </script>
+</body>
+</html>
